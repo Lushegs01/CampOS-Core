@@ -41,7 +41,7 @@ const modules = [
     bgColor: "bg-emerald-500/10",
     textColor: "text-emerald-600",
     status: "Active",
-    url: "/dashboard/student/scanmark",
+    url: "https://scanmark-funaab.onrender.com/",
   },
   {
     id: "unireg",
@@ -242,7 +242,12 @@ export default function StudentDashboard() {
             {modules.map((module) => {
               const Icon = module.icon;
               return (
-                <Link key={module.id} href={module.url}>
+                <Link 
+                  key={module.id} 
+                  href={module.url}
+                  target={module.url.startsWith("http") ? "_blank" : undefined}
+                  rel={module.url.startsWith("http") ? "noopener noreferrer" : undefined}
+                >
                   <Card className="card-hover group cursor-pointer h-full">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">

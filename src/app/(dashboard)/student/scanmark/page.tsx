@@ -46,9 +46,11 @@ export default function ScanMarkPage() {
               : "Point your camera at the lecturer's QR code to mark your attendance."}
           </p>
           {!scanned && (
-            <Button variant="gradient" size="lg" className="mt-6 gap-2" onClick={handleScan} disabled={scanning}>
-              <Scan className="h-5 w-5" />
-              {scanning ? "Scanning..." : "Start Scan"}
+            <Button variant="gradient" size="lg" className="mt-6 gap-2" asChild>
+              <a href="https://scanmark-funaab.onrender.com/" target="_blank" rel="noopener noreferrer">
+                <Scan className="h-5 w-5" />
+                Start Scan
+              </a>
             </Button>
           )}
           {scanned && (

@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import Image from "next/image";
 
 export const metadata: Metadata = {
   title: "Authentication - CampOS Core",
@@ -21,20 +22,8 @@ export default function AuthLayout({
         {/* Logo area */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="w-5 h-5"
-              >
-                <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-                <path d="M6 12v5c3 3 9 3 12 0v-5" />
-              </svg>
+            <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-xl p-1 backdrop-blur-sm">
+              <Image src="/logo.png" alt="CampOS Logo" width={36} height={36} className="object-contain drop-shadow-md" />
             </div>
             <span className="text-2xl font-bold tracking-tight font-[family-name:var(--font-space-grotesk)]">
               CampOS
@@ -79,20 +68,8 @@ export default function AuthLayout({
       <div className="w-full lg:w-1/2 xl:w-7/12 flex flex-col items-center justify-center p-4 sm:p-8 lg:p-12 bg-background relative">
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-xl campos-gradient flex items-center justify-center text-white">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-5 h-5"
-            >
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-              <path d="M6 12v5c3 3 9 3 12 0v-5" />
-            </svg>
+          <div className="w-10 h-10 flex items-center justify-center">
+            <Image src="/logo.png" alt="CampOS Logo" width={40} height={40} className="object-contain drop-shadow-sm" />
           </div>
           <span className="text-2xl font-bold tracking-tight font-[family-name:var(--font-space-grotesk)]">
             CampOS

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -142,8 +143,8 @@ export default function HomePage() {
       <footer className="border-t py-12 px-4">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg campos-gradient flex items-center justify-center">
-              <span className="text-white font-bold text-sm">C</span>
+            <div className="w-8 h-8 flex items-center justify-center">
+              <Image src="/logo.png" alt="CampOS Logo" width={32} height={32} className="object-contain" />
             </div>
             <span className="font-semibold">CampOS</span>
           </div>

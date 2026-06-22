@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -39,8 +40,8 @@ export function Sidebar({ isAdmin = false, collapsed = false, onToggle }: Sideba
     <aside className={cn("fixed left-0 top-0 z-40 h-screen bg-card border-r border-border transition-all duration-300 ease-in-out flex flex-col", collapsed ? "w-[72px]" : "w-[260px]")}>
       <div className="flex items-center h-16 px-4 border-b border-border">
         <Link href={isAdmin ? "/admin" : "/student"} className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg campos-gradient flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-sm">C</span>
+          <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+            <Image src="/logo.png" alt="CampOS Logo" width={32} height={32} className="object-contain" />
           </div>
           {!collapsed && <span className="font-semibold text-lg tracking-tight text-foreground">CampOS</span>}
         </Link>

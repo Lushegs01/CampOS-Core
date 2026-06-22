@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Upload, Download, Image, File, Trash2 } from "lucide-react";
+import { FileText, Upload, Download, Image as ImageIcon, File, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -87,7 +87,7 @@ export default function FilesPage() {
                     file.mimeType.startsWith("image/") ? "bg-violet-500/10" : "bg-blue-500/10"
                   )}>
                     {file.mimeType.startsWith("image/") ? (
-                      <Image className="h-5 w-5 text-violet-600" />
+                      <ImageIcon className="h-5 w-5 text-violet-600" />
                     ) : (
                       <FileText className="h-5 w-5 text-blue-600" />
                     )}

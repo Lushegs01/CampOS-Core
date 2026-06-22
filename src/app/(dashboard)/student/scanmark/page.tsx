@@ -61,7 +61,7 @@ export default function ScanMarkPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Today's Classes</CardTitle>
+              <CardTitle>Today&apos;s Classes</CardTitle>
               <CardDescription>Your scheduled classes for today</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

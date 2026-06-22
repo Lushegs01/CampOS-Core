@@ -23,7 +23,7 @@ export default function AuthLayout({
         <div className="relative z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-xl p-1 backdrop-blur-sm">
-              <Image src="/logo.png" alt="CampOS Logo" width={36} height={36} className="object-contain drop-shadow-md" />
+              <Image src="/logo.png" alt="CampOS Logo" width={36} height={36} className="object-contain drop-shadow-md" unoptimized />
             </div>
             <span className="text-2xl font-bold tracking-tight font-[family-name:var(--font-space-grotesk)]">
               CampOS
@@ -69,7 +69,7 @@ export default function AuthLayout({
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-3 mb-8">
           <div className="w-10 h-10 flex items-center justify-center">
-            <Image src="/logo.png" alt="CampOS Logo" width={40} height={40} className="object-contain drop-shadow-sm" />
+            <Image src="/logo.png" alt="CampOS Logo" width={40} height={40} className="object-contain drop-shadow-sm" unoptimized />
           </div>
           <span className="text-2xl font-bold tracking-tight font-[family-name:var(--font-space-grotesk)]">
             CampOS

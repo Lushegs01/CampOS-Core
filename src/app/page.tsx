@@ -144,7 +144,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 flex items-center justify-center">
-              <Image src="/logo.png" alt="CampOS Logo" width={32} height={32} className="object-contain" />
+              <Image src="/logo.png" alt="CampOS Logo" width={32} height={32} className="object-contain" unoptimized />
             </div>
             <span className="font-semibold">CampOS</span>
           </div>

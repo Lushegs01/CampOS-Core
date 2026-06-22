@@ -41,7 +41,7 @@ export function Sidebar({ isAdmin = false, collapsed = false, onToggle }: Sideba
       <div className="flex items-center h-16 px-4 border-b border-border">
         <Link href={isAdmin ? "/admin" : "/student"} className="flex items-center gap-3">
           <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
-            <Image src="/logo.png" alt="CampOS Logo" width={32} height={32} className="object-contain" />
+            <Image src="/logo.png" alt="CampOS Logo" width={32} height={32} className="object-contain" unoptimized />
           </div>
           {!collapsed && <span className="font-semibold text-lg tracking-tight text-foreground">CampOS</span>}
         </Link>

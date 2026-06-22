@@ -76,8 +76,12 @@ export default function LoginPage() {
         throw new Error(data.error || "Invalid email or password");
       }
 
-      // Success - redirect to dashboard
-      router.push("/dashboard");
+      // Success - redirect to appropriate dashboard based on role
+      if (data.user?.roles?.includes("admin")) {
+        router.push("/admin");
+      } else {
+        router.push("/student");
+      }
       router.refresh();
     } catch (err) {
       setError({

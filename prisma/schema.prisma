@@ -1,0 +1,462 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==================== AUTH & IDENTITY ====================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  firstName     String
+  lastName      String
+  avatarUrl     String?
+  isEmailVerified Boolean @default(false)
+  emailVerificationToken String?
+  passwordResetToken       String?
+  passwordResetExpires     DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relationships
+  roles         UserRole[]
+  sessions      Session[]
+  studentProfile StudentProfile?
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  files         FileUpload[]
+  activities    UserActivity[]
+  
+  // Multi-tenancy
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+
+  @@index([email])
+  @@index([institutionId])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  permissions Permission[]
+  users       UserRole[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  resource    String   // e.g., "student", "attendance", "institution"
+  action      String   // e.g., "create", "read", "update", "delete", "manage"
+  description String?
+  roles       Role[]
+  createdAt   DateTime @default(now())
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  refreshToken String @unique
+  expiresAt DateTime
+  userAgent String?
+  ipAddress String?
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ==================== CAMPOS IDENTITY SERVICE ====================
+
+model StudentProfile {
+  id                String   @id @default(cuid())
+  camposId          String   @unique
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Academic Info
+  institutionId     String
+  institution       Institution @relation(fields: [institutionId], references: [id])
+  facultyId         String
+  faculty           Faculty  @relation(fields: [facultyId], references: [id])
+  departmentId      String
+  department        Department @relation(fields: [departmentId], references: [id])
+  programId         String?
+  program           Program? @relation(fields: [programId], references: [id])
+  level             String   // 100, 200, 300, 400, 500, etc.
+  enrollmentStatus  String   @default("active") // active, suspended, graduated, withdrawn
+  graduationStatus  String?  // pending, graduated, not-eligible
+  verificationStatus String @default("pending") // pending, verified, rejected
+  
+  // Personal Info
+  matricNumber      String   @unique
+  dateOfBirth       DateTime?
+  phoneNumber       String?
+  address           String?
+  emergencyContact  String?
+  
+  // NADA Anonymous Profile (separated to protect identity)
+  nadaProfileId     String?  @unique
+  nadaProfile       NadaProfile?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([camposId])
+  @@index([matricNumber])
+  @@index([institutionId])
+  @@index([enrollmentStatus])
+  @@map("student_profiles")
+}
+
+model NadaProfile {
+  id          String   @id @default(cuid())
+  studentProfileId String @unique
+  studentProfile StudentProfile @relation(fields: [studentProfileId], references: [id])
+  
+  // Anonymous data - NEVER linked to real identity
+  anonymousHandle String @unique
+  avatarSeed      String @default("")
+  isVerified      Boolean @default(false) // Only verified students can post
+  reputationScore Int @default(0)
+  postCount       Int @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([anonymousHandle])
+  @@map("nada_profiles")
+}
+
+// ==================== INSTITUTION MANAGEMENT ====================
+
+model Institution {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  code        String   @unique
+  description String?
+  logoUrl     String?
+  website     String?
+  address     String?
+  country     String
+  city        String
+  timezone    String   @default("UTC")
+  isActive    Boolean  @default(true)
+  
+  // Relationships
+  users       User[]
+  faculties   Faculty[]
+  departments Department[]
+  programs    Program[]
+  students    StudentProfile[]
+  semesters   Semester[]
+  academicSessions AcademicSession[]
+  analytics   InstitutionAnalytics[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([code])
+  @@map("institutions")
+}
+
+model Faculty {
+  id            String   @id @default(cuid())
+  name          String
+  code          String
+  description   String?
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  departments   Department[]
+  students      StudentProfile[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([institutionId, code])
+  @@map("faculties")
+}
+
+model Department {
+  id            String   @id @default(cuid())
+  name          String
+  code          String
+  description   String?
+  facultyId     String
+  faculty       Faculty  @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  programs      Program[]
+  students      StudentProfile[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([facultyId, code])
+  @@map("departments")
+}
+
+model Program {
+  id            String   @id @default(cuid())
+  name          String
+  code          String
+  description   String?
+  durationYears Int      @default(4)
+  departmentId  String
+  department    Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  students      StudentProfile[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([departmentId, code])
+  @@map("programs")
+}
+
+model Semester {
+  id            String   @id @default(cuid())
+  name          String
+  code          String
+  startDate     DateTime
+  endDate       DateTime
+  isActive      Boolean  @default(false)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("semesters")
+}
+
+model AcademicSession {
+  id            String   @id @default(cuid())
+  name          String
+  year          String
+  isActive      Boolean  @default(false)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("academic_sessions")
+}
+
+// ==================== NOTIFICATION SERVICE ====================
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // info, success, warning, error
+  title       String
+  message     String
+  actionUrl   String?
+  actionLabel String?
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  source      String   // system, scanmark, unireg, funaabnb, nada
+  metadata    String?  // JSON string for additional data
+  createdAt   DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id              String @id @default(cuid())
+  userId          String @unique
+  emailEnabled    Boolean @default(true)
+  pushEnabled     Boolean @default(true)
+  inAppEnabled    Boolean @default(true)
+  scanmarkAlerts  Boolean @default(true)
+  uniregAlerts    Boolean @default(true)
+  funaabnbAlerts  Boolean @default(true)
+  nadaAlerts      Boolean @default(true)
+  marketingEmails Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("notification_preferences")
+}
+
+// ==================== ANALYTICS ENGINE ====================
+
+model UserActivity {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action        String   // login, logout, page_view, api_call, module_access
+  module        String?  // scanmark, unireg, funaabnb, nada, core
+  metadata      String?  // JSON
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, module])
+  @@map("user_activities")
+}
+
+model InstitutionAnalytics {
+  id                    String   @id @default(cuid())
+  institutionId         String
+  institution           Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  date                  DateTime @default(now())
+  
+  // Metrics
+  totalStudents         Int @default(0)
+  activeStudents        Int @default(0)
+  newRegistrations      Int @default(0)
+  attendanceRate        Float @default(0)
+  housingOccupancy      Float @default(0)
+  nadaActiveUsers       Int @default(0)
+  nadaPostsToday        Int @default(0)
+  
+  createdAt             DateTime @default(now())
+
+  @@unique([institutionId, date])
+  @@map("institution_analytics")
+}
+
+model MetricEvent {
+  id            String   @id @default(cuid())
+  type          String   // attendance, registration, housing, nada_engagement
+  institutionId String
+  value         Float
+  metadata      String?  // JSON
+  createdAt     DateTime @default(now())
+
+  @@index([type, institutionId, createdAt])
+  @@map("metric_events")
+}
+
+// ==================== AUDIT LOGGING ====================
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  institutionId String?
+  action        String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, EXPORT, etc.
+  resource      String   // user, student, institution, attendance, etc.
+  resourceId    String?
+  oldValue      String?  // JSON
+  newValue      String?  // JSON
+  ipAddress     String?
+  userAgent     String?
+  timestamp     DateTime @default(now())
+  status        String   @default("success") // success, failure
+  errorMessage  String?
+
+  @@index([userId, timestamp])
+  @@index([institutionId, timestamp])
+  @@index([action, resource])
+  @@map("audit_logs")
+}
+
+// ==================== FILE MANAGEMENT ====================
+
+model FileUpload {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionId String?
+  filename      String
+  originalName  String
+  mimeType      String
+  size          Int
+  url           String
+  bucket        String   @default("default")
+  category      String   // profile_photo, document, verification, housing
+  entityType    String?  // student, institution, etc.
+  entityId      String?  
+  isPublic      Boolean  @default(false)
+  metadata      String?  // JSON
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, category])
+  @@index([institutionId, category])
+  @@map("file_uploads")
+}
+
+// ==================== MODULE INTEGRATION ====================
+
+model ModuleRegistration {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  displayName   String
+  description   String?
+  icon          String
+  baseUrl       String?
+  apiVersion    String   @default("v1")
+  isActive      Boolean  @default(true)
+  requiredRoles String[] // roles that can access this module
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("module_registrations")
+}
+
+model ModuleApiKey {
+  id            String   @id @default(cuid())
+  moduleId      String
+  moduleName    String
+  apiKey        String   @unique
+  secretKey     String
+  permissions   String[] // read:student, write:attendance, etc.
+  isActive      Boolean  @default(true)
+  lastUsedAt    DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([apiKey])
+  @@map("module_api_keys")
+}
+
+model ApiRequestLog {
+  id            String   @id @default(cuid())
+  apiKeyId      String?
+  moduleName    String
+  endpoint      String
+  method        String
+  statusCode    Int
+  responseTime  Int      // ms
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+
+  @@index([moduleName, createdAt])
+  @@map("api_request_logs")
+}

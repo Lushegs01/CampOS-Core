@@ -50,7 +50,7 @@ export default function FilesPage() {
         {[
           { label: "Total Files", value: files.length, icon: File, color: "bg-blue-500" },
           { label: "Documents", value: files.filter((f) => f.category === "document").length, icon: FileText, color: "bg-emerald-500" },
-          { label: "Photos", value: files.filter((f) => f.category === "profile_photo").length, icon: Image, color: "bg-violet-500" },
+          { label: "Photos", value: files.filter((f) => f.category === "profile_photo").length, icon: ImageIcon, color: "bg-violet-500" },
           { label: "Total Size", value: formatFileSize(files.reduce((sum, f) => sum + f.size, 0)), icon: File, color: "bg-amber-500" },
         ].map((stat, i) => {
           const Icon = stat.icon;

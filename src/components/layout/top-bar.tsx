@@ -53,7 +53,7 @@ export function TopBar({ user, unreadCount = 0, onMenuClick }: TopBarProps) {
           {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </Button>
 
-        <Link href="/dashboard/notifications">
+        <Link href={user?.roles?.includes("admin") ? "/admin/notifications" : "/student/notifications"}>
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5 text-muted-foreground" />
             {unreadCount > 0 && (

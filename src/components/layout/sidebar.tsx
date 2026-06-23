@@ -41,7 +41,7 @@ export function Sidebar({ isAdmin = false, institutionSlug, collapsed = false, o
   const basePath = institutionSlug ? `/${institutionSlug}` : "";
   const { modules, institution } = useWorkspace();
 
-  // Build admin nav items (always static)
+  // Build admin nav items (always static, all internal)
   const adminNavItems = [
     { href: `${basePath}/admin`, label: "Dashboard", icon: LayoutDashboard },
     { href: `${basePath}/admin/students`, label: "Students", icon: Users },
@@ -51,16 +51,25 @@ export function Sidebar({ isAdmin = false, institutionSlug, collapsed = false, o
     { href: `${basePath}/admin/notifications`, label: "Notifications", icon: Bell },
     { href: `${basePath}/admin/files`, label: "Files", icon: FileText },
     { href: `${basePath}/admin/settings`, label: "Settings", icon: Settings },
-  ];
+  ].map((item) => ({ ...item, external: false }));
 
-  // Build student nav items from registered modules
+  // Build student nav items from registered modules.
+  // A module whose registered URL is absolute (e.g. ScanMark on Render) is an
+  // external app: link it through the SSO hand-off so the student lands there
+  // already authenticated. Internal modules keep their in-app page.
   const studentNavItems = [
-    { href: `${basePath}/student`, label: "Dashboard", icon: LayoutDashboard },
-    ...modules.map((m) => ({
-      href: `${basePath}/student/${m.name}`,
-      label: m.displayName,
-      icon: getIcon(m.icon),
-    })),
+    { href: `${basePath}/student`, label: "Dashboard", icon: LayoutDashboard, external: false },
+    ...modules.map((m) => {
+      const isExternal = /^https?:\/\//i.test(m.url);
+      return {
+        href: isExternal
+          ? `/api/modules/sso?module=${encodeURIComponent(m.name)}`
+          : `${basePath}/student/${m.name}`,
+        label: m.displayName,
+        icon: getIcon(m.icon),
+        external: isExternal,
+      };
+    }),
   ];
 
   const navItems = isAdmin ? adminNavItems : studentNavItems;
@@ -82,12 +91,24 @@ export function Sidebar({ isAdmin = false, institutionSlug, collapsed = false, o
       )}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = !item.external && pathname === item.href;
           const Icon = item.icon;
-          return (
-            <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all", isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground")} title={collapsed ? item.label : undefined}>
+          const linkClass = cn("flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all", isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground");
+          const inner = (
+            <>
               <Icon className={cn("h-5 w-5 flex-shrink-0", isActive && "text-primary")} />
               {!collapsed && <span>{item.label}</span>}
+            </>
+          );
+          // External modules go through the SSO hand-off, which 302s to another
+          // origin — use a plain <a> (full navigation), not a client-side <Link>.
+          return item.external ? (
+            <a key={item.href} href={item.href} className={linkClass} title={collapsed ? item.label : undefined}>
+              {inner}
+            </a>
+          ) : (
+            <Link key={item.href} href={item.href} className={linkClass} title={collapsed ? item.label : undefined}>
+              {inner}
             </Link>
           );
         })}

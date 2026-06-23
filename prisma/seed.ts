@@ -224,7 +224,8 @@ async function main() {
       displayName: "ScanMark",
       description: "Attendance & Presence Verification",
       icon: "QrCode",
-      baseUrl: "/dashboard/student/scanmark",
+      // External module app — used as <baseUrl>/sso/callback for SSO hand-off.
+      baseUrl: process.env.SSO_URL_SCANMARK || "https://scanmark-funaab.onrender.com",
       requiredRoles: [],
     }),
     upsertModule({

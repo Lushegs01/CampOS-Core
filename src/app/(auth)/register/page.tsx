@@ -107,7 +107,7 @@ export default function RegisterPage() {
           lastName: formData.lastName,
           email: formData.email,
           password: formData.password,
-          institution: formData.institution,
+          institutionId: formData.institution,
         }),
       });
 

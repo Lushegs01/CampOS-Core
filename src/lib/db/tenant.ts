@@ -50,27 +50,39 @@ const TENANT_CONTEXT_KEY = "campos:tenant-context";
  * This is used by the Prisma middleware to apply RLS.
  */
 export async function setTenantContext(context: TenantContext): Promise<void> {
-  await redis.setex(
-    `${TENANT_CONTEXT_KEY}:${context.userId}`,
-    60 * 60, // 1 hour TTL
-    JSON.stringify(context)
-  );
+  try {
+    await redis.setex(
+      `${TENANT_CONTEXT_KEY}:${context.userId}`,
+      60 * 60, // 1 hour TTL
+      JSON.stringify(context)
+    );
+  } catch (e) {
+    console.warn("Redis not configured, skipping tenant context storage.");
+  }
 }
 
 /**
  * Get the current tenant context from Redis.
  */
 export async function getTenantContext(userId: string): Promise<TenantContext | null> {
-  const data = await redis.get<TenantContext>(`${TENANT_CONTEXT_KEY}:${userId}`);
-  if (!data) return null;
-  return data as TenantContext;
+  try {
+    const data = await redis.get<TenantContext>(`${TENANT_CONTEXT_KEY}:${userId}`);
+    if (!data) return null;
+    return data as TenantContext;
+  } catch (e) {
+    return null;
+  }
 }
 
 /**
  * Clear tenant context from Redis.
  */
 export async function clearTenantContext(userId: string): Promise<void> {
-  await redis.del(`${TENANT_CONTEXT_KEY}:${userId}`);
+  try {
+    await redis.del(`${TENANT_CONTEXT_KEY}:${userId}`);
+  } catch (e) {
+    // Ignore Redis error
+  }
 }
 
 /**

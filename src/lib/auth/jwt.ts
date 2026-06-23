@@ -54,11 +54,15 @@ export async function createRefreshToken(payload: JWTPayload): Promise<string> {
     .setExpirationTime("7d")
     .sign(JWT_SECRET);
 
-  await redis.setex(
-    `refresh:${payload.userId}`,
-    7 * 24 * 60 * 60,
-    refreshToken
-  );
+  try {
+    await redis.setex(
+      `refresh:${payload.userId}`,
+      7 * 24 * 60 * 60,
+      refreshToken
+    );
+  } catch (e) {
+    console.warn("Redis not configured, skipping refresh token storage.");
+  }
 
   return refreshToken;
 }
@@ -75,8 +79,12 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
 }
 
 export async function revokeToken(userId: string): Promise<void> {
-  await redis.del(`refresh:${userId}`);
-  await redis.setex(`revoked:${userId}`, 2 * 60 * 60, "revoked");
+  try {
+    await redis.del(`refresh:${userId}`);
+    await redis.setex(`revoked:${userId}`, 2 * 60 * 60, "revoked");
+  } catch (e) {
+    console.warn("Redis not configured, skipping token revocation.");
+  }
 }
 
 export function generateVerificationToken(): string {

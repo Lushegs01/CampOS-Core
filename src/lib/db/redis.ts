@@ -6,9 +6,13 @@ export const redis = new Redis({
 });
 
 export async function getCache<T>(key: string): Promise<T | null> {
-  const data = await redis.get<T>(key);
-  if (!data) return null;
-  return data;
+  try {
+    const data = await redis.get<T>(key);
+    if (!data) return null;
+    return data;
+  } catch (e) {
+    return null;
+  }
 }
 
 export async function setCache<T>(
@@ -16,20 +20,26 @@ export async function setCache<T>(
   value: T,
   ttlSeconds: number = 3600
 ): Promise<void> {
-  await redis.setex(key, ttlSeconds, JSON.stringify(value));
+  try {
+    await redis.setex(key, ttlSeconds, JSON.stringify(value));
+  } catch (e) {}
 }
 
 export async function deleteCache(key: string): Promise<void> {
-  await redis.del(key);
+  try {
+    await redis.del(key);
+  } catch (e) {}
 }
 
 export async function deleteCachePattern(pattern: string): Promise<void> {
-  let cursor: string = "0";
-  do {
-    const [nextCursor, keys] = await redis.scan(cursor, { match: pattern, count: 100 });
-    cursor = String(nextCursor);
-    if (keys.length > 0) {
-      await redis.del(...(keys as string[]));
-    }
-  } while (cursor !== "0");
+  try {
+    let cursor: string = "0";
+    do {
+      const [nextCursor, keys] = await redis.scan(cursor, { match: pattern, count: 100 });
+      cursor = String(nextCursor);
+      if (keys.length > 0) {
+        await redis.del(...(keys as string[]));
+      }
+    } while (cursor !== "0");
+  } catch (e) {}
 }

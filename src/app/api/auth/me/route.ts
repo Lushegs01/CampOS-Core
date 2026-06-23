@@ -6,10 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getSession(request);
     if (!session) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
@@ -32,10 +29,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const roles = user.roles.map((ur) => ur.role.name);
@@ -53,7 +47,13 @@ export async function GET(request: NextRequest) {
         roles,
         permissions,
         institution: user.institution
-          ? { id: user.institution.id, name: user.institution.name, slug: user.institution.slug }
+          ? {
+              id: user.institution.id,
+              name: user.institution.name,
+              slug: user.institution.slug,
+              code: user.institution.code,
+              logoUrl: user.institution.logoUrl,
+            }
           : null,
         studentProfile: user.studentProfile
           ? {
@@ -72,9 +72,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Me endpoint error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

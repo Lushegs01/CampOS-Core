@@ -25,6 +25,10 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Multi-tenancy: nullable only for super_admin
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+
   // Relationships
   roles         UserRole[]
   sessions      Session[]
@@ -33,10 +37,7 @@ model User {
   auditLogs     AuditLog[]
   files         FileUpload[]
   activities    UserActivity[]
-  
-  // Multi-tenancy
-  institutionId String?
-  institution   Institution? @relation(fields: [institutionId], references: [id])
+  notificationPreferences NotificationPreference[]
 
   @@index([email])
   @@index([institutionId])
@@ -45,13 +46,20 @@ model User {
 
 model Role {
   id          String   @id @default(cuid())
-  name        String   @unique
+  name        String
   description String?
+  isGlobal    Boolean  @default(false) // true = super_admin, institution_admin roles; false = institution-specific
+  
+  // Multi-tenancy: null = global role (e.g., super_admin), set = institution-specific role
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  
   permissions Permission[]
   users       UserRole[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@unique([name, institutionId])
   @@map("roles")
 }
 
@@ -81,6 +89,7 @@ model UserRole {
 model Session {
   id        String   @id @default(cuid())
   userId    String
+  institutionId String?  // Tenant context for session validation
   token     String   @unique
   refreshToken String @unique
   expiresAt DateTime
@@ -90,9 +99,11 @@ model Session {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
 
   @@index([token])
   @@index([userId])
+  @@index([institutionId])
   @@map("sessions")
 }
 
@@ -125,7 +136,7 @@ model StudentProfile {
   address           String?
   emergencyContact  String?
   
-  // NADA Anonymous Profile (separated to protect identity)
+  // NADA Anonymous Profile
   nadaProfileId     String?  @unique
   nadaProfile       NadaProfile?
   
@@ -144,7 +155,11 @@ model NadaProfile {
   studentProfileId String @unique
   studentProfile StudentProfile @relation(fields: [studentProfileId], references: [id])
   
-  // Anonymous data - NEVER linked to real identity
+  // Institution-scoped for workspace isolation
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  
+  // Anonymous data - NEVER linked to real identity publicly
   anonymousHandle String @unique
   avatarSeed      String @default("")
   isVerified      Boolean @default(false) // Only verified students can post
@@ -154,6 +169,7 @@ model NadaProfile {
   updatedAt       DateTime @updatedAt
 
   @@index([anonymousHandle])
+  @@index([institutionId])
   @@map("nada_profiles")
 }
 
@@ -175,6 +191,7 @@ model Institution {
   
   // Relationships
   users       User[]
+  roles       Role[]
   faculties   Faculty[]
   departments Department[]
   programs    Program[]
@@ -182,6 +199,16 @@ model Institution {
   semesters   Semester[]
   academicSessions AcademicSession[]
   analytics   InstitutionAnalytics[]
+  nadaProfiles NadaProfile[]
+  sessions    Session[]
+  notifications Notification[]
+  userActivities UserActivity[]
+  auditLogs   AuditLog[]
+  fileUploads FileUpload[]
+  moduleRegistrations ModuleRegistration[]
+  moduleApiKeys ModuleApiKey[]
+  apiRequestLogs ApiRequestLog[]
+  notificationPreferences NotificationPreference[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -277,6 +304,11 @@ model Notification {
   id          String   @id @default(cuid())
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Institution-scoped for tenant isolation
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  
   type        String   // info, success, warning, error
   title       String
   message     String
@@ -289,13 +321,19 @@ model Notification {
   createdAt   DateTime @default(now())
 
   @@index([userId, isRead])
-  @@index([createdAt])
+  @@index([institutionId, createdAt])
   @@map("notifications")
 }
 
 model NotificationPreference {
   id              String @id @default(cuid())
-  userId          String @unique
+  userId          String
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Institution-scoped: one set per user per institution
+  institutionId   String?
+  institution     Institution? @relation(fields: [institutionId], references: [id])
+  
   emailEnabled    Boolean @default(true)
   pushEnabled     Boolean @default(true)
   inAppEnabled    Boolean @default(true)
@@ -307,6 +345,7 @@ model NotificationPreference {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@unique([userId, institutionId])
   @@map("notification_preferences")
 }
 
@@ -316,6 +355,11 @@ model UserActivity {
   id            String   @id @default(cuid())
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Institution-scoped for tenant isolation
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  
   action        String   // login, logout, page_view, api_call, module_access
   module        String?  // scanmark, unireg, funaabnb, nada, core
   metadata      String?  // JSON
@@ -324,7 +368,7 @@ model UserActivity {
   createdAt     DateTime @default(now())
 
   @@index([userId, createdAt])
-  @@index([action, module])
+  @@index([institutionId, action])
   @@map("user_activities")
 }
 
@@ -367,7 +411,8 @@ model AuditLog {
   id            String   @id @default(cuid())
   userId        String?
   user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  institutionId String?
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
   action        String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, EXPORT, etc.
   resource      String   // user, student, institution, attendance, etc.
   resourceId    String?
@@ -391,7 +436,8 @@ model FileUpload {
   id            String   @id @default(cuid())
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  institutionId String?
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
   filename      String
   originalName  String
   mimeType      String
@@ -415,17 +461,24 @@ model FileUpload {
 
 model ModuleRegistration {
   id            String   @id @default(cuid())
-  name          String   @unique
+  name          String
   displayName   String
   description   String?
   icon          String
   baseUrl       String?
   apiVersion    String   @default("v1")
   isActive      Boolean  @default(true)
+  isGlobal      Boolean  @default(true)  // true = available to all institutions, false = institution-specific
   requiredRoles String[] // roles that can access this module
+  
+  // Institution-scoped for workspace isolation
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  @@unique([name, institutionId])
   @@map("module_registrations")
 }
 
@@ -439,10 +492,16 @@ model ModuleApiKey {
   isActive      Boolean  @default(true)
   lastUsedAt    DateTime?
   expiresAt     DateTime?
+  
+  // Institution-scoped for tenant isolation
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([apiKey])
+  @@index([institutionId])
   @@map("module_api_keys")
 }
 
@@ -455,8 +514,27 @@ model ApiRequestLog {
   statusCode    Int
   responseTime  Int      // ms
   ipAddress     String?
+  
+  // Institution-scoped for tenant isolation
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  
   createdAt     DateTime @default(now())
 
   @@index([moduleName, createdAt])
+  @@index([institutionId])
   @@map("api_request_logs")
+}
+
+// ==================== MIGRATION LOG ====================
+
+model MigrationLog {
+  id          String   @id @default(cuid())
+  version     String   // migration version number
+  name        String   // human-readable migration name
+  appliedAt   DateTime @default(now())
+  rolledBack  Boolean  @default(false)
+  rolledBackAt DateTime?
+  
+  @@map("migration_logs")
 }

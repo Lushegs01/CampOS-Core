@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/session";
+import { getSession, requireTenant, requirePermission, isSuperAdmin } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +15,12 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get("id");
 
     if (id) {
+      // Only super_admin can access any institution by ID
+      // Others can only access their own institution
+      if (!isSuperAdmin(session) && session.institutionId !== id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
       const institution = await prisma.institution.findUnique({
         where: { id },
         include: {
@@ -25,8 +31,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ institution });
     }
 
-    const institutions = await prisma.institution.findMany({
-      where: { isActive: true },
+    // Super admin: list all institutions
+    // Others: list only their own institution
+    if (isSuperAdmin(session)) {
+      const institutions = await prisma.institution.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          code: true,
+          logoUrl: true,
+          country: true,
+          city: true,
+          _count: { select: { students: true } },
+        },
+      });
+      return NextResponse.json({ institutions });
+    }
+
+    // Non-super-admin: only their institution
+    if (!session.institutionId) {
+      return NextResponse.json({ institutions: [] });
+    }
+
+    const institution = await prisma.institution.findUnique({
+      where: { id: session.institutionId },
       select: {
         id: true,
         name: true,
@@ -39,7 +69,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ institutions });
+    return NextResponse.json({ institutions: institution ? [institution] : [] });
   } catch (error) {
     console.error("Institution error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -48,10 +78,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession(request);
-    if (!session || !session.roles.some((r) => ["super_admin", "institution_admin"].includes(r))) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const session = await requirePermission(request, "institution", "manage");
 
     const body = await request.json();
     const { name, slug, code, description, country, city, website } = body;
@@ -61,8 +88,11 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, institution });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Create institution error:", error);
+    if (error.message === "Unauthorized" || error.message?.startsWith("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

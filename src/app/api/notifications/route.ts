@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/session";
+import { getSession, requireTenant } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 
 export async function GET(request: NextRequest) {
@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
 
     const where: any = { userId: session.userId };
     if (unreadOnly) where.isRead = false;
+    // Add institution filter for tenant isolation (admin views can filter by institution)
+    if (session.institutionId) {
+      where.institutionId = session.institutionId;
+    }
 
     const notifications = await prisma.notification.findMany({
       where,
@@ -35,10 +39,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession(request);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requireTenant(request);
 
     const body = await request.json();
     const { type, title, message, actionUrl, actionLabel, source } = body;
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     const notification = await prisma.notification.create({
       data: {
         userId: session.userId,
+        institutionId: session.institutionId,
         type,
         title,
         message,
@@ -56,8 +58,11 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true, notification });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Create notification error:", error);
+    if (error.message === "Unauthorized" || error.message?.startsWith("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

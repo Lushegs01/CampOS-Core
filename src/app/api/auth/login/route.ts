@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { verifyPassword, createAccessToken, createRefreshToken } from "@/lib/auth/jwt";
+import { setCurrentTenantContext } from "@/lib/db/tenant";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -9,6 +11,17 @@ const loginSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // Apply IP-based rate limiting for login attempts
+  const ip = request.ip || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const { allowed, remaining } = await rateLimit(`login:${ip}`, { requests: 5, window: 60 });
+  
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many login attempts. Please try again later." },
+      { status: 429 }
+    );
+  }
+
   try {
     const body = await request.json();
     const result = loginSchema.safeParse(body);
@@ -52,12 +65,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const roles = user.roles.map((ur) => ur.role.name);
+    const isSuperAdmin = roles.includes("super_admin");
+
+    // Non-super-admin users MUST belong to an institution
+    if (!isSuperAdmin && !user.institutionId) {
+      return NextResponse.json(
+        { error: "User is not assigned to any institution. Please contact support." },
+        { status: 403 }
+      );
+    }
+
+    // Validate institution is active (for non-super-admin)
+    if (!isSuperAdmin && user.institutionId) {
+      const institution = await prisma.institution.findUnique({
+        where: { id: user.institutionId },
+        select: { isActive: true },
+      });
+      if (!institution || !institution.isActive) {
+        return NextResponse.json(
+          { error: "Institution is inactive or not found" },
+          { status: 403 }
+        );
+      }
+    }
+
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
 
-    const roles = user.roles.map((ur) => ur.role.name);
     const permissions = user.roles.flatMap((ur) =>
       ur.role.permissions.map((p) => `${p.resource}:${p.action}`)
     );
@@ -66,7 +103,8 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       role: roles,
-      institutionId: user.institutionId || undefined,
+      institutionId: user.institutionId,
+      institutionSlug: user.institution?.slug || null,
     };
 
     const accessToken = await createAccessToken(payload);
@@ -75,6 +113,7 @@ export async function POST(request: NextRequest) {
     await prisma.session.create({
       data: {
         userId: user.id,
+        institutionId: user.institutionId,
         token: accessToken,
         refreshToken,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -86,11 +125,21 @@ export async function POST(request: NextRequest) {
     await prisma.userActivity.create({
       data: {
         userId: user.id,
+        institutionId: user.institutionId,
         action: "login",
         module: "core",
         ipAddress: request.ip || undefined,
         userAgent: request.headers.get("user-agent") || undefined,
       },
+    });
+
+    // Set tenant context for RLS middleware
+    setCurrentTenantContext({
+      userId: user.id,
+      institutionId: user.institutionId,
+      institutionSlug: user.institution?.slug || null,
+      roles,
+      isSuperAdmin,
     });
 
     const response = NextResponse.json({
@@ -104,7 +153,12 @@ export async function POST(request: NextRequest) {
         roles,
         permissions,
         institution: user.institution
-          ? { id: user.institution.id, name: user.institution.name }
+          ? {
+              id: user.institution.id,
+              name: user.institution.name,
+              slug: user.institution.slug,
+              code: user.institution.code,
+            }
           : null,
       },
       accessToken,

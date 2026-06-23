@@ -1,5 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { rateLimitMiddleware } from "@/lib/security/rate-limit";
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "campos-jwt-secret-change-in-production"
@@ -8,32 +9,84 @@ const JWT_SECRET = new TextEncoder().encode(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Public routes
+  // Rate limiting for API routes (run FIRST)
+  if (pathname.startsWith("/api")) {
+    const rateLimitResponse = await rateLimitMiddleware(request);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+  }
+
+  // Public routes — always allowed
   const publicRoutes = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email"];
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();
   }
 
-  // API routes handling
-  if (pathname.startsWith("/api")) {
+  // Static assets
+  if (pathname.startsWith("/_next") || pathname.startsWith("/static")) {
     return NextResponse.next();
   }
 
-  // Check auth for protected routes (lightweight JWT check only)
-  const authHeader = request.headers.get("authorization");
+  // Check auth token (from cookie or header)
   const cookieToken = request.cookies.get("accessToken")?.value;
-  const token = authHeader?.replace("Bearer ", "") ?? cookieToken ?? "";
+  const token = cookieToken ?? "";
 
   if (!token) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  let payload: any;
   try {
-    await jwtVerify(token, JWT_SECRET, { clockTolerance: 15 });
-    return NextResponse.next();
+    const verified = await jwtVerify(token, JWT_SECRET, { clockTolerance: 15 });
+    payload = verified.payload;
   } catch {
     return NextResponse.redirect(new URL("/login", request.url));
   }
+
+  const userInstitutionSlug = payload.institutionSlug as string | undefined;
+  const userRoles = (payload.role as string[]) || [];
+  const isSuperAdmin = userRoles.includes("super_admin");
+
+  // Redirect legacy routes to workspace routes
+  if (pathname.startsWith("/student/") || pathname === "/student") {
+    const suffix = pathname.replace("/student", "");
+    const targetSlug = userInstitutionSlug || "default";
+    return NextResponse.redirect(new URL(`/${targetSlug}/student${suffix}`, request.url));
+  }
+
+  if (pathname.startsWith("/admin/") || pathname === "/admin") {
+    const suffix = pathname.replace("/admin", "");
+    const targetSlug = userInstitutionSlug || "default";
+    return NextResponse.redirect(new URL(`/${targetSlug}/admin${suffix}`, request.url));
+  }
+
+  // Workspace route validation: /:institutionSlug/student or /:institutionSlug/admin
+  const workspaceMatch = pathname.match(/^\/([^\/]+)\/(student|admin)/);
+  if (workspaceMatch) {
+    const requestedSlug = workspaceMatch[1];
+    const requestedRole = workspaceMatch[2];
+
+    // Super admins can access any workspace
+    if (!isSuperAdmin) {
+      // Non-super-admins must match their institution slug
+      if (userInstitutionSlug && userInstitutionSlug !== requestedSlug) {
+        // Redirect to their correct workspace
+        const correctPath = pathname.replace(
+          /^\/[^\/]+/,
+          `/${userInstitutionSlug}`
+        );
+        return NextResponse.redirect(new URL(correctPath, request.url));
+      }
+
+      // Role-based access control for workspace type
+      if (requestedRole === "admin" && !userRoles.some((r) => ["super_admin", "institution_admin", "faculty_admin"].includes(r))) {
+        return NextResponse.redirect(new URL(`/${userInstitutionSlug || requestedSlug}/student`, request.url));
+      }
+    }
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {

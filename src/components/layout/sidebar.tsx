@@ -5,47 +5,81 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/components/providers/workspace-provider";
 import {
-  LayoutDashboard, GraduationCap, Building2, Bell, BarChart3,
+  LayoutDashboard, Building2, Bell, BarChart3,
   FileText, Settings, Shield, ChevronLeft, ChevronRight, Users,
-  BookOpen, QrCode, Hotel, MessageCircle, LogOut
+  BookOpen, QrCode, Hotel, MessageCircle, LogOut,
+  AppWindow, // fallback icon
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-interface SidebarProps { isAdmin?: boolean; collapsed?: boolean; onToggle?: () => void; }
+interface SidebarProps { isAdmin?: boolean; institutionSlug?: string; collapsed?: boolean; onToggle?: () => void; }
 
-const studentNavItems = [
-  { href: "/student", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/student/scanmark", label: "ScanMark", icon: QrCode },
-  { href: "/student/unireg", label: "UniReg", icon: BookOpen },
-  { href: "/student/funaabnb", label: "FunaaBnB", icon: Hotel },
-  { href: "/student/nada", label: "NADA", icon: MessageCircle },
-];
+const iconMap: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  Building2,
+  Bell,
+  BarChart3,
+  FileText,
+  Settings,
+  Shield,
+  Users,
+  BookOpen,
+  QrCode,
+  Hotel,
+  MessageCircle,
+  AppWindow,
+};
 
-const adminNavItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/students", label: "Students", icon: Users },
-  { href: "/admin/institutions", label: "Institutions", icon: Building2 },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/admin/audit", label: "Audit Logs", icon: Shield },
-  { href: "/admin/notifications", label: "Notifications", icon: Bell },
-  { href: "/admin/files", label: "Files", icon: FileText },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
-];
+function getIcon(iconName: string): LucideIcon {
+  return iconMap[iconName] || AppWindow;
+}
 
-export function Sidebar({ isAdmin = false, collapsed = false, onToggle }: SidebarProps) {
+export function Sidebar({ isAdmin = false, institutionSlug, collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const basePath = institutionSlug ? `/${institutionSlug}` : "";
+  const { modules, institution } = useWorkspace();
+
+  // Build admin nav items (always static)
+  const adminNavItems = [
+    { href: `${basePath}/admin`, label: "Dashboard", icon: LayoutDashboard },
+    { href: `${basePath}/admin/students`, label: "Students", icon: Users },
+    { href: `${basePath}/admin/institutions`, label: "Institutions", icon: Building2 },
+    { href: `${basePath}/admin/analytics`, label: "Analytics", icon: BarChart3 },
+    { href: `${basePath}/admin/audit`, label: "Audit Logs", icon: Shield },
+    { href: `${basePath}/admin/notifications`, label: "Notifications", icon: Bell },
+    { href: `${basePath}/admin/files`, label: "Files", icon: FileText },
+    { href: `${basePath}/admin/settings`, label: "Settings", icon: Settings },
+  ];
+
+  // Build student nav items from registered modules
+  const studentNavItems = [
+    { href: `${basePath}/student`, label: "Dashboard", icon: LayoutDashboard },
+    ...modules.map((m) => ({
+      href: `${basePath}/student/${m.name}`,
+      label: m.displayName,
+      icon: getIcon(m.icon),
+    })),
+  ];
+
   const navItems = isAdmin ? adminNavItems : studentNavItems;
 
   return (
     <aside className={cn("fixed left-0 top-0 z-40 h-screen bg-card border-r border-border transition-all duration-300 ease-in-out flex flex-col", collapsed ? "w-[72px]" : "w-[260px]")}>
       <div className="flex items-center h-16 px-4 border-b border-border">
-        <Link href={isAdmin ? "/admin" : "/student"} className="flex items-center gap-3">
+        <Link href={isAdmin ? `${basePath}/admin` : `${basePath}/student`} className="flex items-center gap-3">
           <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
             <Image src="/logo.png" alt="CampOS Logo" width={32} height={32} className="object-contain" unoptimized />
           </div>
           {!collapsed && <span className="font-semibold text-lg tracking-tight text-foreground">CampOS</span>}
         </Link>
       </div>
+      {!collapsed && institution && (
+        <div className="px-4 py-2 border-b border-border">
+          <p className="text-xs text-muted-foreground truncate">{institution.name}</p>
+        </div>
+      )}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         {navItems.map((item) => {
           const isActive = pathname === item.href;

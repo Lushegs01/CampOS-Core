@@ -21,7 +21,8 @@ export interface JWTPayload {
   userId: string;
   email: string;
   role: string[];
-  institutionId?: string;
+  institutionId: string | null;
+  institutionSlug: string | null;
   iat?: number;
   exp?: number;
 }
@@ -32,6 +33,7 @@ export async function createAccessToken(payload: JWTPayload): Promise<string> {
     email: payload.email,
     role: payload.role,
     institutionId: payload.institutionId,
+    institutionSlug: payload.institutionSlug,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -45,13 +47,13 @@ export async function createRefreshToken(payload: JWTPayload): Promise<string> {
     email: payload.email,
     role: payload.role,
     institutionId: payload.institutionId,
+    institutionSlug: payload.institutionSlug,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(JWT_SECRET);
 
-  // Store in Redis for revocation support
   await redis.setex(
     `refresh:${payload.userId}`,
     7 * 24 * 60 * 60,

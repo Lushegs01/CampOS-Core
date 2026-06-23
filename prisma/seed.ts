@@ -3,36 +3,43 @@ import { hashPassword } from "@/lib/auth/jwt";
 
 const prisma = new PrismaClient();
 
+async function upsertRole(data: { name: string; description: string; isGlobal?: boolean }) {
+  const existing = await prisma.role.findFirst({
+    where: { name: data.name, institutionId: null },
+  });
+  if (existing) {
+    return prisma.role.update({ where: { id: existing.id }, data });
+  }
+  return prisma.role.create({ data: { ...data, institutionId: null } as any });
+}
+
+async function upsertModule(data: {
+  name: string;
+  displayName: string;
+  description: string;
+  icon: string;
+  baseUrl: string;
+  requiredRoles: string[];
+}) {
+  const existing = await prisma.moduleRegistration.findFirst({
+    where: { name: data.name, institutionId: null },
+  });
+  if (existing) {
+    return prisma.moduleRegistration.update({ where: { id: existing.id }, data });
+  }
+  return prisma.moduleRegistration.create({ data: { ...data, institutionId: null } as any });
+}
+
 async function main() {
   console.log("🌱 Seeding CampOS Core...");
 
-  // Create roles
+  // Create roles (global roles with null institutionId)
   const roles = await Promise.all([
-    prisma.role.upsert({
-      where: { name: "super_admin" },
-      update: {},
-      create: { name: "super_admin", description: "Super Administrator with full access" },
-    }),
-    prisma.role.upsert({
-      where: { name: "institution_admin" },
-      update: {},
-      create: { name: "institution_admin", description: "Institution Administrator" },
-    }),
-    prisma.role.upsert({
-      where: { name: "faculty_admin" },
-      update: {},
-      create: { name: "faculty_admin", description: "Faculty Administrator" },
-    }),
-    prisma.role.upsert({
-      where: { name: "lecturer" },
-      update: {},
-      create: { name: "lecturer", description: "Lecturer/Teaching Staff" },
-    }),
-    prisma.role.upsert({
-      where: { name: "student" },
-      update: {},
-      create: { name: "student", description: "Student" },
-    }),
+    upsertRole({ name: "super_admin", description: "Super Administrator with full access", isGlobal: true }),
+    upsertRole({ name: "institution_admin", description: "Institution Administrator", isGlobal: true }),
+    upsertRole({ name: "faculty_admin", description: "Faculty Administrator" }),
+    upsertRole({ name: "lecturer", description: "Lecturer/Teaching Staff" }),
+    upsertRole({ name: "student", description: "Student" }),
   ]);
 
   console.log(`✅ Created ${roles.length} roles`);
@@ -210,55 +217,39 @@ async function main() {
 
   console.log(`✅ Created demo student: ${studentUser.email} / student123`);
 
-  // Create modules
+  // Create modules (global modules with null institutionId)
   const modules_data = await Promise.all([
-    prisma.moduleRegistration.upsert({
-      where: { name: "scanmark" },
-      update: {},
-      create: {
-        name: "scanmark",
-        displayName: "ScanMark",
-        description: "Attendance & Presence Verification",
-        icon: "QrCode",
-        baseUrl: "/dashboard/student/scanmark",
-        requiredRoles: [],
-      },
+    upsertModule({
+      name: "scanmark",
+      displayName: "ScanMark",
+      description: "Attendance & Presence Verification",
+      icon: "QrCode",
+      baseUrl: "/dashboard/student/scanmark",
+      requiredRoles: [],
     }),
-    prisma.moduleRegistration.upsert({
-      where: { name: "unireg" },
-      update: {},
-      create: {
-        name: "unireg",
-        displayName: "UniReg",
-        description: "Student Registration & Academic Administration",
-        icon: "BookOpen",
-        baseUrl: "/dashboard/student/unireg",
-        requiredRoles: [],
-      },
+    upsertModule({
+      name: "unireg",
+      displayName: "UniReg",
+      description: "Student Registration & Academic Administration",
+      icon: "BookOpen",
+      baseUrl: "/dashboard/student/unireg",
+      requiredRoles: [],
     }),
-    prisma.moduleRegistration.upsert({
-      where: { name: "funaabnb" },
-      update: {},
-      create: {
-        name: "funaabnb",
-        displayName: "FunaaBnB",
-        description: "Student Accommodation & Housing Management",
-        icon: "Hotel",
-        baseUrl: "/dashboard/student/funaabnb",
-        requiredRoles: [],
-      },
+    upsertModule({
+      name: "funaabnb",
+      displayName: "FunaaBnB",
+      description: "Student Accommodation & Housing Management",
+      icon: "Hotel",
+      baseUrl: "/dashboard/student/funaabnb",
+      requiredRoles: [],
     }),
-    prisma.moduleRegistration.upsert({
-      where: { name: "nada" },
-      update: {},
-      create: {
-        name: "nada",
-        displayName: "NADA",
-        description: "Anonymous Student Social Network",
-        icon: "MessageCircle",
-        baseUrl: "/dashboard/student/nada",
-        requiredRoles: ["student"],
-      },
+    upsertModule({
+      name: "nada",
+      displayName: "NADA",
+      description: "Anonymous Student Social Network",
+      icon: "MessageCircle",
+      baseUrl: "/dashboard/student/nada",
+      requiredRoles: ["student"],
     }),
   ]);
 

@@ -76,8 +76,16 @@ export default function LoginPage() {
         throw new Error(data.error || "Invalid email or password");
       }
 
-      // Success - redirect to appropriate dashboard based on role
-      if (data.user?.roles?.includes("admin")) {
+      // Success - redirect to appropriate workspace based on role and institution
+      const institutionSlug = data.user?.institution?.slug;
+      if (institutionSlug) {
+        if (data.user?.roles?.some((r: string) => ["super_admin", "institution_admin", "faculty_admin"].includes(r))) {
+          router.push(`/${institutionSlug}/admin`);
+        } else {
+          router.push(`/${institutionSlug}/student`);
+        }
+      } else if (data.user?.roles?.includes("super_admin")) {
+        // Super admin without institution - redirect to first available institution or admin dashboard
         router.push("/admin");
       } else {
         router.push("/student");

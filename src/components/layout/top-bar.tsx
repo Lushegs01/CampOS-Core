@@ -1,12 +1,13 @@
 "use client";
 
+import { useUnreadNotificationCount } from "@/hooks/use-notifications";
 import { useState } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, getInitials } from "@/lib/utils";
-import { Bell, Search, Moon, Sun, Menu } from "lucide-react";
+import { Bell, Search, Moon, Sun, Menu, Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 
 interface TopBarProps {
@@ -16,14 +17,20 @@ interface TopBarProps {
     email: string;
     avatarUrl?: string;
     roles?: string[];
+    institutionName?: string;
   };
-  unreadCount?: number;
   onMenuClick?: () => void;
+  institutionSlug?: string;
 }
 
-export function TopBar({ user, unreadCount = 0, onMenuClick }: TopBarProps) {
+export function TopBar({ user, onMenuClick, institutionSlug }: TopBarProps) {
   const { theme, setTheme } = useTheme();
   const [searchOpen, setSearchOpen] = useState(false);
+  const { data: unreadCount, isLoading: unreadLoading } = useUnreadNotificationCount();
+  const isAdmin = user?.roles?.some((r) => ["super_admin", "institution_admin", "faculty_admin"].includes(r));
+  const notifPath = institutionSlug 
+    ? `/${institutionSlug}/${isAdmin ? "admin" : "student"}/notifications`
+    : isAdmin ? "/admin/notifications" : "/student/notifications";
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 lg:px-6">
@@ -46,6 +53,12 @@ export function TopBar({ user, unreadCount = 0, onMenuClick }: TopBarProps) {
             </Button>
           )}
         </div>
+        {user?.institutionName && (
+          <Badge variant="outline" className="hidden md:flex gap-1 items-center">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            {user.institutionName}
+          </Badge>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -53,14 +66,16 @@ export function TopBar({ user, unreadCount = 0, onMenuClick }: TopBarProps) {
           {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </Button>
 
-        <Link href={user?.roles?.includes("admin") ? "/admin/notifications" : "/student/notifications"}>
+        <Link href={notifPath}>
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5 text-muted-foreground" />
-            {unreadCount > 0 && (
+            {unreadLoading ? (
+              <Loader2 className="absolute -top-1 -right-1 h-3 w-3 animate-spin text-muted-foreground" />
+            ) : unreadCount && unreadCount > 0 ? (
               <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </Badge>
-            )}
+            ) : null}
           </Button>
         </Link>
 

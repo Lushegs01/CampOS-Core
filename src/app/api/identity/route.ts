@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/session";
+import { getSession, requireTenant, validateWorkspaceAccess } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { generateCamposId } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession(request);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requireTenant(request);
 
     const profile = await prisma.studentProfile.findUnique({
       where: { userId: session.userId },
@@ -22,6 +19,11 @@ export async function GET(request: NextRequest) {
 
     if (!profile) {
       return NextResponse.json({ error: "Student profile not found" }, { status: 404 });
+    }
+
+    // Verify the profile belongs to the user's institution
+    if (session.institutionId && profile.institutionId !== session.institutionId) {
+      return NextResponse.json({ error: "Forbidden: profile does not belong to your institution" }, { status: 403 });
     }
 
     return NextResponse.json({
@@ -40,21 +42,21 @@ export async function GET(request: NextRequest) {
         verificationStatus: profile.verificationStatus,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Identity error:", error);
+    if (error.message === "Unauthorized" || error.message?.startsWith("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession(request);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await requireTenant(request);
 
     const body = await request.json();
-    const { institutionId, facultyId, departmentId, programId, level, matricNumber } = body;
+    const { facultyId, departmentId, programId, level, matricNumber } = body;
 
     const existing = await prisma.studentProfile.findUnique({
       where: { userId: session.userId },
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
       data: {
         camposId: generateCamposId(),
         userId: session.userId,
-        institutionId,
+        institutionId: session.institutionId!,
         facultyId,
         departmentId,
         programId,
@@ -83,8 +85,11 @@ export async function POST(request: NextRequest) {
       success: true,
       identity: { camposId: profile.camposId },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Create identity error:", error);
+    if (error.message === "Unauthorized" || error.message?.startsWith("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

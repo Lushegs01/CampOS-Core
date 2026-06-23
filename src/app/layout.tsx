@@ -1,5 +1,8 @@
 import { Inter, Space_Grotesk } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { QueryProvider } from "@/components/providers/query-provider";
+import { GlobalErrorBoundary } from "@/components/error-boundary";
+import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
 const inter = Inter({
@@ -28,14 +31,19 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        <GlobalErrorBoundary>
+          <QueryProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+              <Toaster />
+            </ThemeProvider>
+          </QueryProvider>
+        </GlobalErrorBoundary>
       </body>
     </html>
   );

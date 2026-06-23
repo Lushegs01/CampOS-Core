@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
       where: { id: payload.userId },
       include: {
         roles: { include: { role: { include: { permissions: true } } } },
+        institution: true,
       },
     });
 
@@ -50,7 +51,8 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       role: roles,
-      institutionId: user.institutionId || undefined,
+      institutionId: user.institutionId || null,
+      institutionSlug: user.institution?.slug || null,
     };
 
     const newAccessToken = await createAccessToken(newPayload);

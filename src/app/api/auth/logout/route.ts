@@ -31,3 +31,25 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+export async function GET(request: NextRequest) {
+  try {
+    const cookieToken = request.cookies.get("accessToken")?.value;
+    if (cookieToken) {
+      const payload = await verifyToken(cookieToken);
+      if (payload) {
+        await revokeToken(payload.userId);
+        await prisma.session.updateMany({
+          where: { userId: payload.userId, isRevoked: false },
+          data: { isRevoked: true },
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Logout GET error:", error);
+  }
+
+  const response = NextResponse.redirect(new URL("/login", request.url));
+  response.cookies.delete("accessToken");
+  response.cookies.delete("refreshToken");
+  return response;
+}

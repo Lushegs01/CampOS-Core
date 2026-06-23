@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     // user has a student profile. Admins without a profile still get a token.
     const profile = await prisma.studentProfile.findUnique({
       where: { userId: session.userId },
-      select: { camposId: true, matricNumber: true },
+      select: { camposId: true, matricNumber: true, level: true },
     });
 
     const { token } = await mintSsoToken(
@@ -92,6 +92,7 @@ export async function GET(request: NextRequest) {
         userId: session.userId,
         camposId: profile?.camposId ?? null,
         matricNumber: profile?.matricNumber ?? null,
+        level: profile?.level ?? null,
         email: session.email,
         firstName: session.firstName,
         lastName: session.lastName,

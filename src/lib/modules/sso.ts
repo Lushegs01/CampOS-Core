@@ -27,6 +27,7 @@ export interface SsoTokenClaims {
   userId: string;
   camposId: string | null;
   matricNumber: string | null;
+  level: string | null;
   email: string;
   firstName: string;
   lastName: string;
@@ -52,6 +53,7 @@ export async function mintSsoToken(
   const token = await new SignJWT({
     camposId: claims.camposId,
     matricNumber: claims.matricNumber,
+    level: claims.level,
     email: claims.email,
     firstName: claims.firstName,
     lastName: claims.lastName,

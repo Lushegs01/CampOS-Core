@@ -18,7 +18,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // Public routes — always allowed
-  const publicRoutes = ["/login", "/register", "/forgot-password", "/reset-password", "/verify-email"];
+  const publicRoutes = [
+    "/login", 
+    "/register", 
+    "/forgot-password", 
+    "/reset-password", 
+    "/verify-email",
+    "/api/auth" // allow all auth API endpoints
+  ];
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();
   }

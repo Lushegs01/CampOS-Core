@@ -21,7 +21,11 @@ const TENANT_SCOPED_MODELS: Prisma.ModelName[] = [
   "MetricEvent",
   "AuditLog",
   "FileUpload",
-  "ModuleRegistration",
+  // ModuleRegistration is intentionally NOT tenant-scoped: it holds GLOBAL
+  // modules (institutionId: null, isGlobal: true) that must be visible to every
+  // institution. RLS-scoping by institutionId would hide global modules from
+  // students (institutionId null never matches a student's institution). The
+  // module routes already filter explicitly via { institutionId | isGlobal }.
   "ModuleApiKey",
   "ApiRequestLog",
   // User and Role are handled separately due to nullable institutionId for global roles

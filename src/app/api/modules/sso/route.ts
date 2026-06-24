@@ -84,7 +84,9 @@ export async function GET(request: NextRequest) {
 
     // CampOS identity is the source of truth — attach camposId / matric if the
     // user has a student profile. Admins without a profile still get a token.
-    const profile = await prisma.studentProfile.findUnique({
+    // findFirst (not findUnique): the tenant RLS middleware wraps the where in
+    // an AND clause, which findUnique rejects but findFirst accepts.
+    const profile = await prisma.studentProfile.findFirst({
       where: { userId: session.userId },
       select: { camposId: true, matricNumber: true, level: true },
     });

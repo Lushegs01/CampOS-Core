@@ -44,7 +44,9 @@ export async function GET(request: NextRequest) {
         name: moduleName,
         isActive: true,
         OR: [
-          { isGlobal: true, institutionId: null },
+          // A global module is available to every workspace, regardless of
+          // whether its institutionId happens to be set (matches /api/modules).
+          { isGlobal: true },
           { institutionId: session.institutionId ?? undefined },
         ],
       },

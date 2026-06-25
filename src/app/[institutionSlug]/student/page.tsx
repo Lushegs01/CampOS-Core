@@ -10,9 +10,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn, getInitials, formatRelativeTime } from "@/lib/utils";
 import { useWorkspace } from "@/components/providers/workspace-provider";
 import { useNotifications } from "@/hooks/use-notifications";
+import { useAttendance } from "@/hooks/use-attendance";
 import {
   Bell, TrendingUp, Calendar, BookOpen, Hotel, Zap,
-  ChevronRight, Activity, AppWindow, Loader2
+  ChevronRight, AppWindow, Loader2
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import type { LucideIcon } from "lucide-react";
@@ -66,19 +67,17 @@ const notifications = [
   { id: "3", title: "Housing payment due", message: "Your hostel fee payment is due in 3 days", type: "warning" as const, createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString() },
 ];
 
-const activities = [
-  { id: "1", action: "Checked in via ScanMark", module: "ScanMark", time: "10 mins ago" },
-  { id: "2", action: "Registered for CSC 401", module: "UniReg", time: "2 hours ago" },
-  { id: "3", action: "Applied for Hostel B", module: "FunaaBnB", time: "1 day ago" },
-  { id: "4", action: "Posted in NADA", module: "NADA", time: "2 days ago" },
-];
-
 export default function StudentDashboard() {
   const params = useParams();
   const institutionSlug = params.institutionSlug as string;
   const basePath = `/${institutionSlug}`;
   const { user, modules, institution } = useWorkspace();
   const { data: notificationsData, isLoading: notificationsLoading } = useNotifications();
+  const { data: attendance } = useAttendance();
+
+  const attendanceTotal = attendance?.summary.total ?? 0;
+  const attendanceCourses = attendance?.summary.courses.length ?? 0;
+  const attendanceRecords = attendance?.records ?? [];
 
   const profileCompletion = 100;
 
@@ -108,11 +107,11 @@ export default function StudentDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Attendance Rate</p>
-                <p className="text-3xl font-bold mt-1">92%</p>
+                <p className="text-sm text-muted-foreground">Check-ins</p>
+                <p className="text-3xl font-bold mt-1">{attendanceTotal}</p>
                 <div className="flex items-center gap-1 mt-1 text-emerald-600 text-sm">
-                  <TrendingUp className="h-4 w-4" />
-                  <span>+3.2%</span>
+                  <Calendar className="h-4 w-4" />
+                  <span>{attendanceCourses} {attendanceCourses === 1 ? "course" : "courses"}</span>
                 </div>
               </div>
               <div className="h-12 w-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
@@ -328,27 +327,54 @@ export default function StudentDashboard() {
         </Card>
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Attendance (live from ScanMark) */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Your latest actions across CampOS</CardDescription>
+          <CardTitle>Recent Attendance</CardTitle>
+          <CardDescription>Check-ins recorded via ScanMark</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {activities.map((activity) => (
-              <div key={activity.id} className="flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Activity className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{activity.action}</p>
-                  <p className="text-sm text-muted-foreground">{activity.module}</p>
-                </div>
-                <span className="text-xs text-muted-foreground">{activity.time}</span>
+          {attendanceRecords.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                <Calendar className="h-6 w-6 text-muted-foreground" />
               </div>
-            ))}
-          </div>
+              <p className="text-sm font-medium">No attendance yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Open ScanMark and scan to mark attendance — it shows up here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {attendanceRecords.slice(0, 8).map((rec) => (
+                <div key={rec.id} className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                    <Calendar className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {rec.courseCode}
+                      {rec.courseTitle ? ` · ${rec.courseTitle}` : ""}
+                    </p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {rec.sessionTitle || "Attendance recorded"}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <Badge
+                      variant={rec.status === "present" ? "success" : "outline"}
+                      className="capitalize"
+                    >
+                      {rec.status}
+                    </Badge>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatRelativeTime(new Date(rec.scannedAt))}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

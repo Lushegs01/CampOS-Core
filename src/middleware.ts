@@ -17,14 +17,18 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Public routes — always allowed
+  // Public routes — always allowed (no session cookie required).
+  // The module API endpoints below authenticate via API key in the route
+  // handler itself, so the cookie-based middleware must let them through.
   const publicRoutes = [
-    "/login", 
-    "/register", 
-    "/forgot-password", 
-    "/reset-password", 
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
     "/verify-email",
-    "/api/auth" // allow all auth API endpoints
+    "/api/auth", // allow all auth API endpoints
+    "/api/modules/verify", // module API-key auth (external modules)
+    "/api/modules/attendance", // module API-key auth (attendance ingest)
   ];
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return NextResponse.next();

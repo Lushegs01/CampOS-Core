@@ -139,7 +139,10 @@ model StudentProfile {
   // NADA Anonymous Profile
   nadaProfileId     String?  @unique
   nadaProfile       NadaProfile?
-  
+
+  // Attendance (reported by ScanMark)
+  attendanceRecords AttendanceRecord[]
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -209,7 +212,8 @@ model Institution {
   moduleApiKeys ModuleApiKey[]
   apiRequestLogs ApiRequestLog[]
   notificationPreferences NotificationPreference[]
-  
+  attendanceRecords AttendanceRecord[]
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -524,6 +528,40 @@ model ApiRequestLog {
   @@index([moduleName, createdAt])
   @@index([institutionId])
   @@map("api_request_logs")
+}
+
+// ==================== ATTENDANCE (reported by ScanMark) ====================
+
+model AttendanceRecord {
+  id               String   @id @default(cuid())
+
+  // CampOS identity (source of truth)
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  camposId         String
+  matricNumber     String?
+
+  institutionId    String
+  institution      Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  // Attendance details (from the reporting module)
+  courseCode       String
+  courseTitle      String?
+  sessionId        String?  // module's own session identifier
+  sessionTitle     String?
+  status           String   @default("present") // present, late, absent
+  source           String   @default("scanmark")
+
+  // External reference for idempotency (the module's record id)
+  externalId       String?
+  scannedAt        DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  @@unique([source, externalId])
+  @@index([studentProfileId, scannedAt])
+  @@index([institutionId, courseCode])
+  @@index([camposId])
+  @@map("attendance_records")
 }
 
 // ==================== MIGRATION LOG ====================

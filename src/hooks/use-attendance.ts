@@ -22,12 +22,28 @@ export interface AttendanceData {
   summary: { total: number; courses: AttendanceCourse[] };
 }
 
+const EMPTY_ATTENDANCE: AttendanceData = {
+  records: [],
+  summary: { total: 0, courses: [] },
+};
+
 export function useAttendance() {
   return useQuery({
     queryKey: ["attendance"],
     queryFn: async () => {
       const { data } = await api.get("/api/attendance");
-      return data as AttendanceData;
+      // Guard against unexpected shapes (e.g. an auth redirect returning HTML),
+      // so the dashboard never crashes on a missing `summary`.
+      if (!data || typeof data !== "object" || !data.summary) {
+        return EMPTY_ATTENDANCE;
+      }
+      return {
+        records: Array.isArray(data.records) ? data.records : [],
+        summary: {
+          total: data.summary.total ?? 0,
+          courses: Array.isArray(data.summary.courses) ? data.summary.courses : [],
+        },
+      } as AttendanceData;
     },
     // Refetch when the student switches back to CampOS after scanning in ScanMark.
     refetchOnWindowFocus: true,

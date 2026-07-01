@@ -75,8 +75,8 @@ export default function StudentDashboard() {
   const { data: notificationsData, isLoading: notificationsLoading } = useNotifications();
   const { data: attendance } = useAttendance();
 
-  const attendanceTotal = attendance?.summary.total ?? 0;
-  const attendanceCourses = attendance?.summary.courses.length ?? 0;
+  const attendanceTotal = attendance?.summary?.total ?? 0;
+  const attendanceCourses = attendance?.summary?.courses?.length ?? 0;
   const attendanceRecords = attendance?.records ?? [];
 
   const profileCompletion = 100;

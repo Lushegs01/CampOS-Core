@@ -108,7 +108,14 @@ export async function GET(request: NextRequest) {
       moduleReg.name
     );
 
-    const callbackUrl = new URL(`${baseUrl}/sso/callback`);
+    // If the configured URL already points at a specific callback path (e.g.
+    // ".../api/sso"), use it as-is; otherwise append the conventional
+    // "/sso/callback". Lets each module expose the hand-off wherever it likes.
+    const parsedBase = new URL(baseUrl);
+    const baseHasPath = parsedBase.pathname && parsedBase.pathname !== "/";
+    const callbackUrl = new URL(
+      baseHasPath ? baseUrl : `${baseUrl}/sso/callback`
+    );
     callbackUrl.searchParams.set("token", token);
     if (next) callbackUrl.searchParams.set("next", next);
 

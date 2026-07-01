@@ -18,9 +18,8 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata = {
   title: "CampOS Core - University Operating System",
   description: "The central platform powering the CampOS ecosystem",
-  icons: {
-    icon: "/favicon.ico",
-  },
+  // Favicon / app icons are provided by the file-based icons
+  // (src/app/icon.png and src/app/apple-icon.png).
 };
 
 export default function RootLayout({

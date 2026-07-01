@@ -34,8 +34,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Static assets
-  if (pathname.startsWith("/_next") || pathname.startsWith("/static")) {
+  // Static assets — never gate Next internals or files served from /public
+  // (they resolve at the root, e.g. /logo.png, so match by extension).
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/static") ||
+    /\.(png|jpg|jpeg|gif|svg|ico|webp|avif|css|js|map|txt|woff2?|ttf|eot|otf)$/i.test(pathname)
+  ) {
     return NextResponse.next();
   }
 

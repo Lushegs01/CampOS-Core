@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 import { cn } from "@/lib/utils";
@@ -17,13 +17,23 @@ export function DashboardLayout({ children, isAdmin = false, institutionSlug }: 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, institution } = useWorkspace();
 
+  // Lock background scroll while the mobile drawer is open.
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
+
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar 
-        isAdmin={isAdmin} 
-        institutionSlug={institutionSlug} 
-        collapsed={sidebarCollapsed} 
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
+      <Sidebar
+        isAdmin={isAdmin}
+        institutionSlug={institutionSlug}
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
       />
       <div className={cn("transition-all duration-300", sidebarCollapsed ? "lg:ml-[72px]" : "lg:ml-[260px]")}>
         <TopBar 
